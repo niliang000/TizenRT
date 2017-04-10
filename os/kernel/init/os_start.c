@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- * Copyright 2016 Samsung Electronics All Rights Reserved.
+ * Copyright 2016-2017 Samsung Electronics All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -91,6 +91,12 @@
 #include  "group/group.h"
 #endif
 #include  "init/init.h"
+#ifdef CONFIG_TINYARA_DEBUG
+#include <tinyara/debug/tinyara_debug.h>
+#endif
+#ifdef CONFIG_LATENCY_MEASURE
+#include "latency/latency.h"
+#endif
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -103,6 +109,9 @@
 /****************************************************************************
  * Global Variables
  ****************************************************************************/
+#ifdef CONFIG_ENABLE_STACKMONITOR
+extern const uint32_t g_idle_topstack;
+#endif
 
 /* Task Lists ***************************************************************/
 /* The state of a task is indicated both by the task_state field of the TCB
@@ -344,6 +353,12 @@ void os_start(void)
 	g_idleargv[1]  = NULL;
 	g_idletcb.argv = g_idleargv;
 
+	/* Set the IDLE task stack size */
+#ifdef CONFIG_ENABLE_STACKMONITOR
+	g_idletcb.cmn.adj_stack_size = CONFIG_IDLETHREAD_STACKSIZE;
+	g_idletcb.cmn.stack_alloc_ptr = (void *)(g_idle_topstack - CONFIG_IDLETHREAD_STACKSIZE);
+#endif
+
 	/* Then add the idle task's TCB to the head of the ready to run list */
 
 	dq_addfirst((FAR dq_entry_t *)&g_idletcb, (FAR dq_queue_t *)&g_readytorun);
@@ -501,6 +516,18 @@ void os_start(void)
 	 */
 
 	up_initialize();
+
+#ifdef CONFIG_LATENCY_MEASURE
+	latency_init();
+#endif
+
+#if defined(CONFIG_TINYARA_DEBUG)
+	tinyara_debug_init();
+#endif
+
+#if defined(CONFIG_TTRACE)
+	ttrace_init();
+#endif
 
 #ifdef CONFIG_MM_SHM
 	/* Initialize shared memory support */
